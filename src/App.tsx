@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { FillRule } from 'clipper2-ts';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { HexColorPicker } from 'react-colorful';
 import './App.css';
 import { buildArrangementFromShapes } from './arrangement';
 import { locateFaceSmallest } from './arrangement/pointLocation';
@@ -184,6 +185,55 @@ function Pill({
     >
       {children}
     </motion.button>
+  );
+}
+
+// ─── Color picker row ───
+function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="parrot-color-row-wrap" ref={ref}>
+      <button type="button" className="parrot-row parrot-row--color" onClick={() => setOpen((o) => !o)}>
+        <span className="parrot-row__label">{label}</span>
+        <span className="parrot-swatch__ui" style={{ background: value }} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="parrot-colorpicker"
+            initial={{ opacity: 0, scale: 0.95, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 6 }}
+            transition={{ type: 'spring', visualDuration: 0.2, bounce: 0.3 }}
+          >
+            <HexColorPicker color={value} onChange={onChange} />
+            <div className="parrot-colorpicker__hex">
+              <span>#</span>
+              <input
+                type="text"
+                value={value.replace('#', '')}
+                onChange={(e) => {
+                  const v = '#' + e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                  if (v.length === 7) onChange(v);
+                }}
+                spellCheck={false}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -627,7 +677,7 @@ export default function App() {
       fill: shapeColor,
       stroke: strokeWidth > 0 ? shapeColor : 'none',
       strokeWidth,
-      background: pageColor,
+      // no background → transparent SVG
     });
     downloadSvgFile(svg, 'shape-export.svg');
   };
@@ -732,13 +782,7 @@ export default function App() {
       {uiMode === 'design' ? (
         <footer className="parrot-footer parrot-footer--design">
           <div className="parrot-panel">
-            <div className="parrot-row parrot-row--color">
-              <span className="parrot-row__label">Shape color</span>
-              <label className="parrot-swatch">
-                <input type="color" value={shapeColor} onChange={(e) => setShapeColor(e.target.value)} />
-                <span className="parrot-swatch__ui" style={{ background: shapeColor }} />
-              </label>
-            </div>
+            <ColorRow label="Shape color" value={shapeColor} onChange={setShapeColor} />
             <label className="parrot-row parrot-row--field">
               <span>Line weight</span>
               <DeferredInput value={strokeWidth} min={0} max={100} onCommit={setStrokeWidth} suffix="px" />

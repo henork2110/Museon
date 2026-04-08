@@ -217,6 +217,11 @@
   overflow: clip;
   padding: 8px 12px;
   min-height: 32px;
+  transition: background 0.12s ease;
+}
+
+.parrot-row:hover {
+  background: #333333;
 }
 
 /* ── Color rows: left padding 12px, all other sides 8px ── */
@@ -271,29 +276,94 @@
   font-size: 11px;
 }
 
-/* ── Color swatch: 16×16, 2px radius, stroke outside white 12% 0.5px ── */
-.parrot-swatch {
-  position: relative;
-  display: inline-flex;
-  cursor: pointer;
-}
-
-.parrot-swatch input[type='color'] {
-  position: absolute;
-  opacity: 0;
-  width: 24px;
-  height: 24px;
-  inset: 0;
-  cursor: pointer;
-}
-
+/* ── Color swatch chip ── */
 .parrot-swatch__ui {
   display: block;
   width: 16px;
   height: 16px;
   border-radius: 2px;
   box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
-  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* ── Color row: full-width clickable button ── */
+.parrot-color-row-wrap {
+  position: relative;
+}
+
+.parrot-row--color {
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  font: inherit;
+  text-align: left;
+}
+
+.parrot-row--color:hover .parrot-row__label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Custom color picker popover ── */
+.parrot-colorpicker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 100;
+  background: #1a1a1a;
+  border: 1px solid #2c2c2c;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  width: 200px;
+}
+
+.parrot-colorpicker .react-colorful {
+  width: 100%;
+  height: 160px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.parrot-colorpicker .react-colorful__saturation {
+  border-radius: 8px 8px 0 0;
+}
+
+.parrot-colorpicker .react-colorful__hue {
+  height: 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.parrot-colorpicker .react-colorful__pointer {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.parrot-colorpicker__hex {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #2c2c2c;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px;
+}
+
+.parrot-colorpicker__hex input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  letter-spacing: 0.05em;
 }
 
 /* ── Builder footer: keyboard shortcut hint cards ── */
