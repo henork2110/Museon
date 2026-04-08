@@ -644,8 +644,8 @@ export default function App() {
         onSelectAll();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [uiMode, closeDraft, undo, redo, reset, switchMode, selectedFaceIds, onDeleteSelected, onSelectAll]);
 
   // ─── mode toggle ───
