@@ -306,60 +306,59 @@
 /* ── Custom color picker popover ── */
 .parrot-colorpicker {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 4px);
   left: 0;
   z-index: 100;
-  background: #1a1a1a;
-  border: 1px solid #2c2c2c;
-  border-radius: 12px;
-  padding: 12px;
+  background: #2c2c2c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  gap: 4px;
   width: 200px;
 }
 
 .parrot-colorpicker .react-colorful {
   width: 100%;
-  height: 160px;
-  border-radius: 8px;
+  height: 150px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .parrot-colorpicker .react-colorful__saturation {
-  border-radius: 8px 8px 0 0;
+  border-radius: 4px 4px 0 0;
 }
 
 .parrot-colorpicker .react-colorful__hue {
-  height: 12px;
-  border-radius: 6px;
-  margin-top: 8px;
+  height: 10px;
+  border-radius: 4px;
+  margin-top: 6px;
 }
 
 .parrot-colorpicker .react-colorful__pointer {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
 .parrot-colorpicker__hex {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #2c2c2c;
+  background: #1c1c1c;
   border-radius: 8px;
-  padding: 6px 10px;
-  color: rgba(255,255,255,0.5);
+  padding: 8px 12px;
+  color: rgba(255, 255, 255, 0.5);
   font-size: 12px;
+  margin-top: 2px;
 }
 
 .parrot-colorpicker__hex input {
   flex: 1;
   background: transparent;
   border: none;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255, 255, 255, 0.9);
   font: inherit;
   font-size: 12px;
   outline: none;

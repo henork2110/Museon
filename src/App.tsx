@@ -191,7 +191,11 @@ function Pill({
 // ─── Color picker row ───
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [hexInput, setHexInput] = useState(value.replace('#', ''));
   const ref = useRef<HTMLDivElement>(null);
+
+  // Keep hex input in sync when picker changes color
+  useEffect(() => { setHexInput(value.replace('#', '')); }, [value]);
 
   useEffect(() => {
     if (!open) return;
@@ -204,29 +208,37 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
 
   return (
     <div className="parrot-color-row-wrap" ref={ref}>
-      <button type="button" className="parrot-row parrot-row--color" onClick={() => setOpen((o) => !o)}>
+      <motion.button
+        type="button"
+        className="parrot-row parrot-row--color"
+        onClick={() => setOpen((o) => !o)}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: 'spring', visualDuration: 0.15, bounce: 0.4 }}
+      >
         <span className="parrot-row__label">{label}</span>
         <span className="parrot-swatch__ui" style={{ background: value }} />
-      </button>
+      </motion.button>
       <AnimatePresence>
         {open && (
           <motion.div
             className="parrot-colorpicker"
-            initial={{ opacity: 0, scale: 0.95, y: 6 }}
+            initial={{ opacity: 0, scale: 0.97, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 6 }}
-            transition={{ type: 'spring', visualDuration: 0.2, bounce: 0.3 }}
+            exit={{ opacity: 0, scale: 0.97, y: 4 }}
+            transition={{ type: 'spring', visualDuration: 0.18, bounce: 0.3 }}
           >
             <HexColorPicker color={value} onChange={onChange} />
             <div className="parrot-colorpicker__hex">
               <span>#</span>
               <input
                 type="text"
-                value={value.replace('#', '')}
+                value={hexInput}
                 onChange={(e) => {
-                  const v = '#' + e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
-                  if (v.length === 7) onChange(v);
+                  const raw = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+                  setHexInput(raw);
+                  if (raw.length === 6) onChange('#' + raw);
                 }}
+                onBlur={() => setHexInput(value.replace('#', ''))}
                 spellCheck={false}
               />
             </div>
@@ -234,6 +246,19 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ─── Animated panel row ───
+function PanelRow({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.label
+      className="parrot-row parrot-row--field"
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: 'spring', visualDuration: 0.15, bounce: 0.4 }}
+    >
+      {children}
+    </motion.label>
   );
 }
 
@@ -783,30 +808,30 @@ export default function App() {
         <footer className="parrot-footer parrot-footer--design">
           <div className="parrot-panel">
             <ColorRow label="Shape color" value={shapeColor} onChange={setShapeColor} />
-            <label className="parrot-row parrot-row--field">
+            <PanelRow>
               <span>Line weight</span>
               <DeferredInput value={strokeWidth} min={0} max={100} onCommit={setStrokeWidth} suffix="px" />
-            </label>
+            </PanelRow>
           </div>
           <div className="parrot-panel">
-            <label className="parrot-row parrot-row--field">
+            <PanelRow>
               <span>Columns</span>
               <DeferredInput value={columns} min={DIM_MIN} max={DIM_MAX} onCommit={setColumns} />
-            </label>
-            <label className="parrot-row parrot-row--field">
+            </PanelRow>
+            <PanelRow>
               <span>Rows</span>
               <DeferredInput value={rows} min={DIM_MIN} max={DIM_MAX} onCommit={setRows} />
-            </label>
+            </PanelRow>
           </div>
           <div className="parrot-panel">
-            <label className="parrot-row parrot-row--field">
+            <PanelRow>
               <span>Width</span>
               <DeferredInput value={gridW} min={0} max={PX_MAX} onCommit={setGridW} suffix="px" />
-            </label>
-            <label className="parrot-row parrot-row--field">
+            </PanelRow>
+            <PanelRow>
               <span>Height</span>
               <DeferredInput value={gridH} min={0} max={PX_MAX} onCommit={setGridH} suffix="px" />
-            </label>
+            </PanelRow>
           </div>
         </footer>
       ) : (
