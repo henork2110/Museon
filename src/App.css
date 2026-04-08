@@ -25,6 +25,8 @@
   font-weight: 510;
   line-height: 16px;
   color: rgba(255, 255, 255, 0.5);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Canvas (full viewport, z-0) ── */
@@ -93,6 +95,7 @@
 
 .parrot-footer--design {
   align-items: flex-start;
+  gap: 4px;
 }
 
 .parrot-footer--builder {
@@ -148,6 +151,7 @@
   appearance: none;
   border: none;
   border-radius: 10px;
+  corner-shape: squircle;
   padding: 10px 16px;
   font: inherit;
   color: rgba(255, 255, 255, 0.5);
@@ -211,6 +215,7 @@
   justify-content: space-between;
   background: #2c2c2c;
   border-radius: 8px;
+  corner-shape: squircle;
   overflow: clip;
   padding: 8px 12px;
   min-height: 32px;
@@ -307,6 +312,7 @@
   align-items: center;
   padding: 8px;
   border-radius: 10px;
+  corner-shape: squircle;
   border: 1px solid #2c2c2c;
 }
 
@@ -319,6 +325,7 @@
 .parrot-hint__key {
   background: #2c2c2c;
   border-radius: 4px;
+  corner-shape: squircle;
   padding: 2px 4px;
   font: inherit;
   color: rgba(255, 255, 255, 0.5);
