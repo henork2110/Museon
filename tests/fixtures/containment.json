@@ -1,0 +1,10 @@
+{
+  "id": "containment",
+  "shapes": [
+    { "id": "outer", "z": 0, "closed": true, "vertices": [[0, 0], [128, 0], [128, 128], [0, 128]] },
+    { "id": "inner", "z": 1, "closed": true, "vertices": [[40, 40], [88, 40], [88, 88], [40, 88]] }
+  ],
+  "expect": {
+    "faceCountMin": 3
+  }
+}

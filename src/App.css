@@ -1,0 +1,340 @@
+/* ── Root ──
+   font: 12px / 16px, weight 510 (SF Pro Medium)
+   bg: #1C1C1C
+   primary text: white 50%
+   active text: white 100%
+   button bg: #2C2C2C
+   grid dots: white 80%
+   grid lines: #2C2C2C
+   spacing: 4px gap, 24px padding on holders
+*/
+.parrot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family:
+    'SF Pro',
+    'SF Pro Text',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 12px;
+  font-weight: 510;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Canvas (full viewport, z-0) ── */
+.parrot-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.parrot-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+/* ── Header (floating, top) ── */
+.parrot-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.parrot-header > * {
+  pointer-events: auto;
+}
+
+.parrot-header__left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.parrot-header__right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ── Footer (floating, bottom center) ── */
+.parrot-footer {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 16px;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.parrot-footer > * {
+  pointer-events: auto;
+}
+
+.parrot-footer--design {
+  align-items: flex-start;
+}
+
+.parrot-footer--builder {
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Status hint (floating, bottom-right) ── */
+.parrot-meta {
+  position: absolute;
+  bottom: 4px;
+  right: 12px;
+  z-index: 10;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.parrot-meta__builderHints {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.parrot-meta__hint {
+  opacity: 0.8;
+}
+
+.parrot-meta__hint--sub {
+  font-size: 10px;
+  opacity: 0.65;
+  max-width: 280px;
+  line-height: 1.35;
+}
+
+/* ════════════════════════════════════
+   Normal Buttons
+   (Design, Builder, Download,
+    Unite, Subtract, Intersect, Exclude)
+   Width: hug, Height: hug
+   Padding: 8px vertical, 12px horizontal
+   Text: center aligned
+   bg: transparent by default
+   ════════════════════════════════════ */
+.parrot-pill {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font: inherit;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  overflow: clip;
+}
+
+.parrot-pill:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.parrot-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Selected pill in mode toggle: bg #2C2C2C, white 100% */
+.parrot-pill--active {
+  background: #2c2c2c;
+  color: #ffffff;
+}
+
+/* Download button: bg #2C2C2C */
+.parrot-pill--accent {
+  background: #2c2c2c;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.parrot-pill--accent:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Mode toggle container */
+.parrot-seg {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ════════════════════════════════════
+   Control Panels (300px fixed width)
+   ════════════════════════════════════ */
+.parrot-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 200px;
+  flex-shrink: 0;
+}
+
+/* ── Control panel row (field: Columns, Rows, Width, Height) ──
+   bg: #2C2C2C, rounded 8px, overflow clip
+   padding: 8px top/bottom, 12px left/right
+   label left-aligned, value right-aligned */
+.parrot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2c2c2c;
+  border-radius: 8px;
+  overflow: clip;
+  padding: 8px 12px;
+  min-height: 32px;
+}
+
+/* ── Color rows: left padding 12px, all other sides 8px ── */
+.parrot-row--color {
+  padding: 8px 8px 8px 12px;
+}
+
+.parrot-row__label {
+  color: rgba(255, 255, 255, 0.5);
+  text-align: left;
+}
+
+/* ── Field row text ── */
+.parrot-row--field span:first-child {
+  color: rgba(255, 255, 255, 0.5);
+  text-align: left;
+}
+
+.parrot-row--field input {
+  width: 56px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font: inherit;
+  text-align: right;
+  outline: none;
+}
+
+/* ── Deferred input wrapper (input + optional "px" suffix) ── */
+.parrot-px-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.parrot-px-field input {
+  width: 56px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font: inherit;
+  text-align: right;
+  outline: none;
+}
+
+.parrot-unit {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+}
+
+/* ── Color swatch: 16×16, 2px radius, stroke outside white 12% 0.5px ── */
+.parrot-swatch {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.parrot-swatch input[type='color'] {
+  position: absolute;
+  opacity: 0;
+  width: 24px;
+  height: 24px;
+  inset: 0;
+  cursor: pointer;
+}
+
+.parrot-swatch__ui {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+/* ── Builder footer: keyboard shortcut hint cards ── */
+.parrot-hints {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.parrot-hint {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #2c2c2c;
+}
+
+.parrot-hint__keys {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.parrot-hint__key {
+  background: #2c2c2c;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font: inherit;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  white-space: nowrap;
+  line-height: 16px;
+}
+
+.parrot-hint__key--icon {
+  padding: 2px;
+  width: 20px;
+  text-align: center;
+}
+
+.parrot-hint__label {
+  padding: 2px 4px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}

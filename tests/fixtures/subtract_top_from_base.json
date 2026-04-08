@@ -1,0 +1,10 @@
+{
+  "id": "subtract_top_from_base",
+  "shapes": [
+    { "id": "base", "z": 0, "closed": true, "vertices": [[0, 0], [80, 0], [80, 80], [0, 80]] },
+    { "id": "top", "z": 1, "closed": true, "vertices": [[40, 40], [120, 40], [120, 120], [40, 120]] }
+  ],
+  "expect": {
+    "subtractArea": 4800
+  }
+}

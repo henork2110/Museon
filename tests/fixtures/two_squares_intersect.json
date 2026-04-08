@@ -1,0 +1,11 @@
+{
+  "id": "two_squares_intersect",
+  "shapes": [
+    { "id": "a", "z": 0, "closed": true, "vertices": [[0, 0], [64, 0], [64, 64], [0, 64]] },
+    { "id": "b", "z": 1, "closed": true, "vertices": [[32, 32], [96, 32], [96, 96], [32, 96]] }
+  ],
+  "expect": {
+    "intersectionArea": 1024,
+    "faceCountMin": 3
+  }
+}
