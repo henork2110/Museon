@@ -617,12 +617,13 @@ export default function App() {
         ev.preventDefault();
         if (ev.shiftKey) redo(); else undo();
       }
-      // Option+Delete: delete all shapes (reset)
-      if (ev.key === 'Delete' && ev.altKey) {
+      // Option+Delete or Option+Backspace: delete all shapes (reset)
+      if ((ev.key === 'Delete' || ev.key === 'Backspace') && ev.altKey) {
         ev.preventDefault();
         reset();
         setDraft([]);
         setSelectedFaceIds(new Set());
+        return;
       }
       if (ev.key === '1' && (ev.metaKey || ev.ctrlKey)) {
         ev.preventDefault();

@@ -93,9 +93,13 @@ export function subtractFaceFromBase(
 }
 
 /**
- * Delete arrangement faces by subtracting the deleted region from ALL shapes
- * that cover it (not just the topmost).  Uses `coveringIdsBottomToTop` from
- * coverage data so that deleting a face cuts through every overlapping shape.
+ * Delete arrangement faces by rebuilding each affected shape from its
+ * remaining (non-deleted) faces.  Uses `coveringIdsBottomToTop` so that
+ * deleting a face cuts through ALL overlapping shapes, not just the top one.
+ *
+ * Face-based reconstruction avoids coordinate precision issues that boolean
+ * subtraction has (arrangement vertices can be fractional but Clipper2 rounds
+ * to integers, causing misalignment).
  */
 export function deleteRegionsFromDocument(
   doc: DocumentModel,
@@ -112,12 +116,12 @@ export function deleteRegionsFromDocument(
   const faceById = new Map<number, Face>();
   for (const f of allFaces) faceById.set(f.id, f);
 
-  // Build map: shapeId -> all face ids where that shape is a covering shape
+  // Build map: shapeId -> all face ids where that shape is a covering shape.
+  // Each face is added to ALL shapes that cover it (not just topId).
   const shapeToFaces = new Map<string, number[]>();
   for (const cov of coverages) {
     const face = faceById.get(cov.faceId);
     if (!face || face.signedArea <= MIN_POSITIVE_ARRANGEMENT_FACE_AREA) continue;
-    // Add this face to ALL covering shapes, not just topId
     for (const shapeId of cov.coveringIdsBottomToTop) {
       let list = shapeToFaces.get(shapeId);
       if (!list) {
@@ -127,13 +131,6 @@ export function deleteRegionsFromDocument(
       list.push(cov.faceId);
     }
   }
-
-  // Build the cutter polygon from deleted faces (union them)
-  const cutterPaths: Paths64 = [];
-  for (const f of deletedFaces) {
-    cutterPaths.push(...faceToPath64(verts, f));
-  }
-  const cutterUnion = engine.unionOne(cutterPaths);
 
   const newShapes: Shape[] = [];
   let maxZ = -1;
@@ -147,23 +144,26 @@ export function deleteRegionsFromDocument(
 
     const ownedFaceIds = shapeToFaces.get(sh.id);
     if (!ownedFaceIds || !ownedFaceIds.some((fid) => deletedIds.has(fid))) {
-      // Shape doesn't cover any deleted face — keep as is
       newShapes.push(sh);
       maxZ = Math.max(maxZ, sh.zIndex);
       continue;
     }
 
-    // Subtract the cutter from this shape's original polygon
-    const basePaths: Paths64 = [toPath64(sh.vertices)];
-    const result = engine.execute('subtract', basePaths, cutterUnion);
-    const rebuilt = engine.unionOne(result);
-    const outLoops = pathsToShapeVertices(rebuilt);
+    // Rebuild shape from remaining (non-deleted) faces.
+    const remainingPaths: Paths64 = [];
+    for (const fid of ownedFaceIds) {
+      if (deletedIds.has(fid)) continue;
+      const face = faceById.get(fid);
+      if (face) remainingPaths.push(...faceToPath64(verts, face));
+    }
 
-    if (outLoops.length === 0) {
-      // Shape entirely consumed — drop it.
+    if (remainingPaths.length === 0) {
       maxZ = Math.max(maxZ, sh.zIndex);
       continue;
     }
+
+    const rebuilt = engine.unionOne(remainingPaths);
+    const outLoops = pathsToShapeVertices(rebuilt);
 
     for (let i = 0; i < outLoops.length; i++) {
       const loop = outLoops[i]!;
