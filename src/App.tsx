@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { FillRule } from 'clipper2-ts';
+import { motion } from 'motion/react';
 import './App.css';
 import { buildArrangementFromShapes } from './arrangement';
 import { locateFaceSmallest } from './arrangement/pointLocation';
@@ -156,6 +157,36 @@ function DeferredInput(props: {
   );
 }
 
+// ─── Animated pill button ───
+function Pill({
+  children,
+  className,
+  onClick,
+  disabled,
+  title,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <motion.button
+      type="button"
+      className={className}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      whileHover={disabled ? {} : { scale: 1.04 }}
+      whileTap={disabled ? {} : { scale: 0.94 }}
+      transition={{ type: 'spring', visualDuration: 0.2, bounce: 0.4 }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
 // ─── App ───
 export default function App() {
   const { doc, push, undo, redo, reset } = useDocumentHistory(createEmptyDocument());
@@ -165,7 +196,8 @@ export default function App() {
   const [gridW, setGridW] = useState(800);
   const [gridH, setGridH] = useState(320);
   const [shapeColor, setShapeColor] = useState('#ffffff');
-  const [pageColor, setPageColor] = useState('#1c1c1c');
+  const [pageColor] = useState('#1c1c1c');
+  const [strokeWidth, setStrokeWidth] = useState(0);
   const [draft, setDraft] = useState<{ x: number; y: number }[]>([]);
   const [hoverFaceId, setHoverFaceId] = useState<number | null>(null);
   const [selectedFaceIds, setSelectedFaceIds] = useState<Set<number>>(new Set());
@@ -457,6 +489,13 @@ export default function App() {
     setHoverFaceId(null);
   };
 
+  const onContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (uiMode === 'design') {
+      setDraft((d) => d.slice(0, -1));
+    }
+  };
+
   const closeDraft = useCallback(() => {
     const d = draftRef.current;
     const ddoc = docRef.current;
@@ -586,7 +625,8 @@ export default function App() {
   const onDownload = () => {
     const svg = exportShapesToSvg(doc.shapes, {
       fill: shapeColor,
-      stroke: 'rgba(255,255,255,0.2)',
+      stroke: strokeWidth > 0 ? shapeColor : 'none',
+      strokeWidth,
       background: pageColor,
     });
     downloadSvgFile(svg, 'shape-export.svg');
@@ -617,10 +657,10 @@ export default function App() {
         ev.preventDefault();
         if (ev.shiftKey) redo(); else undo();
       }
-      // Option+Delete or Option+Backspace: delete all shapes (reset)
+      // Option+Delete or Option+Backspace: clear all shapes (undoable)
       if ((ev.key === 'Delete' || ev.key === 'Backspace') && ev.altKey) {
         ev.preventDefault();
-        reset();
+        push(createEmptyDocument());
         setDraft([]);
         setSelectedFaceIds(new Set());
         return;
@@ -651,20 +691,18 @@ export default function App() {
   // ─── mode toggle ───
   const modeSeg = (
     <div className="parrot-seg">
-      <button
-        type="button"
+      <Pill
         className={uiMode === 'design' ? 'parrot-pill parrot-pill--active' : 'parrot-pill'}
         onClick={() => switchMode('design')}
       >
         Design
-      </button>
-      <button
-        type="button"
+      </Pill>
+      <Pill
         className={uiMode === 'builder' ? 'parrot-pill parrot-pill--active' : 'parrot-pill'}
         onClick={() => switchMode('builder')}
       >
         Builder
-      </button>
+      </Pill>
     </div>
   );
 
@@ -678,15 +716,16 @@ export default function App() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerLeave}
+          onContextMenu={onContextMenu}
         />
       </div>
 
       <header className="parrot-header">
         <div className="parrot-header__left">{modeSeg}</div>
         <div className="parrot-header__right">
-          <button type="button" className="parrot-pill parrot-pill--accent" onClick={onDownload}>
+          <Pill className="parrot-pill parrot-pill--accent" onClick={onDownload}>
             Download
-          </button>
+          </Pill>
         </div>
       </header>
 
@@ -700,13 +739,10 @@ export default function App() {
                 <span className="parrot-swatch__ui" style={{ background: shapeColor }} />
               </label>
             </div>
-            <div className="parrot-row parrot-row--color">
-              <span className="parrot-row__label">Page color</span>
-              <label className="parrot-swatch">
-                <input type="color" value={pageColor} onChange={(e) => setPageColor(e.target.value)} />
-                <span className="parrot-swatch__ui" style={{ background: pageColor }} />
-              </label>
-            </div>
+            <label className="parrot-row parrot-row--field">
+              <span>Line weight</span>
+              <DeferredInput value={strokeWidth} min={0} max={100} onCommit={setStrokeWidth} suffix="px" />
+            </label>
           </div>
           <div className="parrot-panel">
             <label className="parrot-row parrot-row--field">

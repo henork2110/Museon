@@ -75,6 +75,7 @@ export function exportShapesToSvg(
     stroke?: string;
     fill?: string;
     background?: string;
+    strokeWidth?: number;
   } = {},
 ): string {
   const fillRule = opts.fillRule ?? FillRule.NonZero;
@@ -84,6 +85,7 @@ export function exportShapesToSvg(
   const fr = fillRuleToSvg(fillRule);
   const fill = opts.fill ?? '#2d7ff9';
   const stroke = opts.stroke ?? '#0d2d5c';
+  const strokeWidth = opts.strokeWidth ?? 1;
   const b = boundsOfPaths(paths);
   const h = b.maxY - b.minY || 1;
   const w = b.maxX - b.minX || 1;
@@ -95,7 +97,7 @@ export function exportShapesToSvg(
       ? `<rect x="${b.minX}" y="${flipY ? -b.maxY : b.minY}" width="${w}" height="${h}" fill="${opts.background}" />\n  `
       : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}">
-  ${bg}<g fill-rule="${fr}" fill="${fill}" stroke="${stroke}" stroke-width="1">
+  ${bg}<g fill-rule="${fr}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}">
     <path d="${d}"/>
   </g>
 </svg>`;
