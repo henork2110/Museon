@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { FillRule } from 'clipper2-ts';
-import { motion, AnimatePresence } from 'motion/react';
-import { HexColorPicker } from 'react-colorful';
+import { motion } from 'motion/react';
+import { useDialKit } from 'dialkit';
+import { converter, formatHex, parse } from 'culori';
 import './App.css';
 import { buildArrangementFromShapes } from './arrangement';
 import { locateFaceSmallest } from './arrangement/pointLocation';
@@ -10,6 +11,7 @@ import { ClipperBooleanEngine } from './booleans/clipperAdapter';
 import {
   addShape,
   createEmptyDocument,
+  replaceShapes,
   type DocumentModel,
 } from './document/model';
 import {
@@ -188,14 +190,232 @@ function Pill({
   );
 }
 
+// ─── P3 color picker (HSV square + hue bar) ───
+const toHsv = converter('hsv');
+const toP3  = converter('p3');
+
+function hexToHsv(hex: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r = toHsv(hex as any) as any;
+  return { h: r?.h ?? 0, s: r?.s ?? 0, v: r?.v ?? 1 };
+}
+function hsvToHex(h: number, s: number, v: number): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return formatHex({ mode: 'hsv', h, s, v } as any) ?? '#000000';
+}
+
+// Resolve user-typed input: named colors, hex shorthand, repeat expansion
+function resolveHexInput(raw: string): string | null {
+  const clean = raw.trim();
+  if (!clean) return null;
+
+  // Named CSS color (letters only, e.g. "blue", "tomato")
+  if (/^[a-zA-Z]+$/.test(clean)) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const parsed = parse(clean.toLowerCase() as any);
+      if (parsed) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const hex = formatHex(parsed as any);
+        if (hex) return (hex as string).replace('#', '');
+      }
+    } catch { /* ignore */ }
+    return null;
+  }
+
+  const hexOnly = clean.replace(/^#/, '').toLowerCase();
+  if (!/^[0-9a-f]+$/.test(hexOnly)) return null;
+  if (hexOnly.length === 6) return hexOnly;
+  if (hexOnly.length === 3) return hexOnly.split('').map(c => c + c).join('');
+  if (hexOnly.length === 2) return hexOnly + hexOnly + hexOnly;
+  if (hexOnly.length === 1) return hexOnly.repeat(6);
+  return null;
+}
+
+// Draw HSV saturation/value square into a P3 canvas
+function drawP3Canvas(
+  canvas: HTMLCanvasElement,
+  getP3: (x: number, y: number, W: number, H: number) => { r: number; g: number; b: number },
+) {
+  const W = canvas.width, H = canvas.height;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = canvas.getContext('2d', { colorSpace: 'display-p3' }) as any;
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const { r, g, b } = getP3(x, y, W, H);
+      const i = (y * W + x) * 4;
+      data[i]   = Math.round(Math.max(0, Math.min(1, r)) * 255);
+      data[i+1] = Math.round(Math.max(0, Math.min(1, g)) * 255);
+      data[i+2] = Math.round(Math.max(0, Math.min(1, b)) * 255);
+      data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(new ImageData(data, W, H, { colorSpace: 'display-p3' }), 0, 0);
+}
+
+function P3ColorPicker({ color, onChange }: { color: string; onChange: (hex: string) => void }) {
+  // Internal HSV state — preserves hue even when at black/white (achromatic)
+  const [hsv, setHsv] = useState(() => hexToHsv(color));
+  const { h, s, v } = hsv;
+
+  // Suppress effect sync while the user is dragging to avoid state conflicts
+  const isDragging = useRef(false);
+
+  // Sync from EXTERNAL color changes only (e.g. hex input, not pointer drags)
+  useEffect(() => {
+    if (isDragging.current) return;
+    const { h: newH, s: newS, v: newV } = hexToHsv(color);
+    setHsv(prev => ({
+      h: (newS > 0.01 && newV > 0.01) ? newH : prev.h,
+      s: newS,
+      v: newV,
+    }));
+  }, [color]);
+
+  const satRef = useRef<HTMLDivElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+
+  // Sat/value square — redraws when hue changes
+  const satCanvasRef = useCallback((canvas: HTMLCanvasElement | null) => {
+    if (canvas) drawP3Canvas(canvas, (x, y, W, H) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p3 = toP3({ mode: 'hsv', h, s: x / (W - 1), v: 1 - y / (H - 1) } as any) as any;
+      return { r: p3?.r ?? 0, g: p3?.g ?? 0, b: p3?.b ?? 0 };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [h]);
+
+  // Hue bar — drawn once on mount (full 0–360 range never changes)
+  const hueCanvasRef = useCallback((canvas: HTMLCanvasElement | null) => {
+    if (canvas) drawP3Canvas(canvas, (x, _y, W) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p3 = toP3({ mode: 'hsv', h: (x / (W - 1)) * 360, s: 1, v: 1 } as any) as any;
+      return { r: p3?.r ?? 0, g: p3?.g ?? 0, b: p3?.b ?? 0 };
+    });
+  }, []);
+
+  function onSatPointer(e: React.PointerEvent) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDragging.current = true;
+    const move = (ev: PointerEvent) => {
+      const rect = satRef.current!.getBoundingClientRect();
+      const newS = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const newV = Math.max(0, Math.min(1, 1 - (ev.clientY - rect.top) / rect.height));
+      setHsv(prev => ({ ...prev, s: newS, v: newV }));
+      onChange(hsvToHex(h, newS, newV));
+    };
+    const up = () => {
+      isDragging.current = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    move(e.nativeEvent);
+  }
+
+  const HUE_PAD = 4;
+  function onHuePointer(e: React.PointerEvent) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDragging.current = true;
+    const move = (ev: PointerEvent) => {
+      const rect = hueRef.current!.getBoundingClientRect();
+      const inner = rect.width - HUE_PAD * 2;
+      const px = Math.max(0, Math.min(inner, ev.clientX - rect.left - HUE_PAD));
+      const newH = (px / inner) * 360;
+      setHsv(prev => ({ ...prev, h: newH }));
+      onChange(hsvToHex(newH, s, v));
+    };
+    const up = () => {
+      isDragging.current = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    move(e.nativeEvent);
+  }
+
+  // Clamp pointer — 8px (half circle) + 4px padding from edges
+  const PTR = 12;
+  const satX = `clamp(${PTR}px, ${s * 100}%, calc(100% - ${PTR}px))`;
+  const satY = `clamp(${PTR}px, ${(1 - v) * 100}%, calc(100% - ${PTR}px))`;
+  const hueX = `calc(${HUE_PAD}px + ${(h / 360) * 100}% * (1 - ${HUE_PAD * 2}px / 100%))`;
+
+  return (
+    <div className="parrot-picker">
+      {/* Sat square — overflow:hidden on inner so pointer renders outside */}
+      <div ref={satRef} className="parrot-picker__sat" onPointerDown={onSatPointer}>
+        <div className="parrot-picker__sat-inner">
+          <canvas ref={satCanvasRef} width={256} height={256} className="parrot-picker__sat-canvas" />
+        </div>
+        <div className="parrot-picker__sat-pointer" style={{ left: satX, top: satY }} />
+      </div>
+      <div ref={hueRef} className="parrot-picker__hue" onPointerDown={onHuePointer}>
+        <canvas ref={hueCanvasRef} width={360} height={1} className="parrot-picker__hue-canvas" />
+        <div className="parrot-picker__hue-pointer" style={{ left: hueX }} />
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Color picker row ───
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   const [hexInput, setHexInput] = useState(value.replace('#', ''));
+  const [replayKey, setReplayKey] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const animRef = useRef<typeof anim | null>(null);
 
-  // Keep hex input in sync when picker changes color
+  const EASING_MAP: Record<string, string> = {
+    spring:     'cubic-bezier(0.34, 1.4, 0.64, 1)',
+    bounce:     'cubic-bezier(0.34, 1.7, 0.64, 1)',
+    'ease-out': 'cubic-bezier(0.0, 0.0, 0.2, 1)',
+    'ease-in-out': 'cubic-bezier(0.4, 0.0, 0.2, 1)',
+    linear:     'linear',
+  };
+
+  const anim = useDialKit('Shape Color Animation', {
+    tilt:     [32, 0, 90, 1],
+    y:        [8, 0, 30, 1],
+    blur:     [0, 0, 20, 1],
+    speed:    [0.4, 0.1, 1.2, 0.01],
+    easing:   { type: 'select' as const, options: ['spring', 'bounce', 'ease-out', 'ease-in-out', 'linear'], default: 'spring' },
+    hueDelay: [0.03, 0, 0.4, 0.01],
+    satDelay: [0.12, 0, 0.4, 0.01],
+    replay:   { type: 'action' as const },
+  }, {
+    onAction: (path) => { if (path === 'replay') setReplayKey(k => k + 1); },
+  });
+
+  animRef.current = anim;
+
   useEffect(() => { setHexInput(value.replace('#', '')); }, [value]);
+
+  // Mount/unmount with exit animation
+  useEffect(() => {
+    if (open) {
+      clearTimeout(exitTimerRef.current);
+      setIsExiting(false);
+      setMounted(true);
+    } else if (mounted) {
+      setIsExiting(true);
+      const { speed, satDelay, hueDelay } = animRef.current!;
+      const ms = (speed * 0.4 + Math.abs(satDelay - hueDelay)) * 1000 + 60;
+      exitTimerRef.current = setTimeout(() => {
+        setMounted(false);
+        setIsExiting(false);
+      }, ms);
+    }
+    return () => clearTimeout(exitTimerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -206,45 +426,91 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  const pickerCssVars = {
+    '--picker-tilt':      `${anim.tilt}deg`,
+    '--picker-tilt-base': `${anim.tilt}deg`,
+    '--picker-y':         `-${anim.y}px`,
+    '--picker-blur':      `${anim.blur}px`,
+    '--picker-speed':     `${anim.speed}s`,
+    '--picker-ease':      EASING_MAP[anim.easing] ?? EASING_MAP['spring'],
+    '--hue-delay':        `${anim.hueDelay}s`,
+    '--sat-delay':        `${anim.satDelay}s`,
+  } as React.CSSProperties;
+
   return (
     <div className="parrot-color-row-wrap" ref={ref}>
-      <motion.button
-        type="button"
-        className="parrot-row parrot-row--color"
-        onClick={() => setOpen((o) => !o)}
-        whileTap={{ scale: 0.97 }}
+
+      {mounted && (
+        <div
+          className={`parrot-colorpicker${isExiting ? ' is-exiting' : ''}`}
+          style={pickerCssVars}
+        >
+          {/* replayKey remounts children to retrigger CSS animations */}
+          <div key={replayKey} style={{ display: 'contents' }}>
+            <P3ColorPicker color={value} onChange={onChange} />
+          </div>
+        </div>
+      )}
+
+      {/* Row — same element, content swaps instantly, no layout shift */}
+      <motion.div
+        className={`parrot-row parrot-row--color${open ? ' is-open' : ''}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => { if (!open) setOpen(true); }}
+        whileTap={!open ? { scale: 0.97 } : {}}
         transition={{ type: 'spring', visualDuration: 0.15, bounce: 0.4 }}
       >
-        <span className="parrot-row__label">{label}</span>
-        <span className="parrot-swatch__ui" style={{ background: value }} />
-      </motion.button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="parrot-colorpicker"
-            initial={{ opacity: 0, scale: 0.97, y: 4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 4 }}
-            transition={{ type: 'spring', visualDuration: 0.18, bounce: 0.3 }}
-          >
-            <HexColorPicker color={value} onChange={onChange} />
-            <div className="parrot-colorpicker__hex">
-              <span>#</span>
-              <input
-                type="text"
-                value={hexInput}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
-                  setHexInput(raw);
-                  if (raw.length === 6) onChange('#' + raw);
-                }}
-                onBlur={() => setHexInput(value.replace('#', ''))}
-                spellCheck={false}
-              />
-            </div>
-          </motion.div>
+        {/* Left: "Shape color" label → hex value (same text style, instant swap) */}
+        {!open ? (
+          <span className="parrot-row__label">{label}</span>
+        ) : (
+          <input
+            ref={inputRef}
+            className="parrot-colorpicker__hex-input"
+            type="text"
+            value={hexInput}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const raw = e.target.value.slice(0, 20);
+              setHexInput(raw);
+              const hexOnly = raw.replace(/^#/, '');
+              if (/^[0-9a-fA-F]{6}$/.test(hexOnly)) onChange('#' + hexOnly);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const resolved = resolveHexInput(hexInput);
+                if (resolved) { onChange('#' + resolved); setHexInput(resolved); }
+                else setHexInput(value.replace('#', ''));
+                e.currentTarget.blur();
+              }
+            }}
+            onBlur={() => {
+              const resolved = resolveHexInput(hexInput);
+              if (resolved) { onChange('#' + resolved); setHexInput(resolved); }
+              else setHexInput(value.replace('#', ''));
+            }}
+            spellCheck={false}
+          />
         )}
-      </AnimatePresence>
+
+        {/* Right: swatch → confirm icon (instant swap) */}
+        {!open ? (
+          <span className="parrot-swatch__ui" style={{ background: value }} />
+        ) : (
+          <button
+            type="button"
+            className="parrot-colorpicker__confirm"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          >
+            ✓
+          </button>
+        )}
+      </motion.div>
     </div>
   );
 }
@@ -279,6 +545,11 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState<'add' | 'remove'>('add');
   const [mouseWorld, setMouseWorld] = useState<{ x: number; y: number } | null>(null);
+  const [cursorInHitArea, setCursorInHitArea] = useState(false);
+  const gridWRef = useRef(gridW);
+  const gridHRef = useRef(gridH);
+  useEffect(() => { gridWRef.current = gridW; }, [gridW]);
+  useEffect(() => { gridHRef.current = gridH; }, [gridH]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef(draft);
@@ -529,7 +800,18 @@ export default function App() {
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const wx = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, vt, canvasPx.h);
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    // Hit area: 40px around grid bounds
+    const HIT_PAD = 40;
+    const gridLeft   = vt.offsetX - HIT_PAD;
+    const gridRight  = vt.offsetX + grid.width * vt.scale + HIT_PAD;
+    const gridTop    = canvasPx.h - (vt.offsetY + grid.height * vt.scale) - HIT_PAD;
+    const gridBottom = canvasPx.h - vt.offsetY + HIT_PAD;
+    setCursorInHitArea(sx >= gridLeft && sx <= gridRight && sy >= gridTop && sy <= gridBottom);
+
+    const wx = screenToWorld(sx, sy, vt, canvasPx.h);
     if (uiMode === 'design') setMouseWorld(wx);
     if (uiMode === 'builder' && arrangementBundle) {
       const face = locateFaceSmallest(wx, arrangementBundle.arrangement);
@@ -562,6 +844,7 @@ export default function App() {
   const onPointerLeave = () => {
     setMouseWorld(null);
     setHoverFaceId(null);
+    setCursorInHitArea(false);
   };
 
   const onContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -728,9 +1011,18 @@ export default function App() {
           setSelectedFaceIds(new Set());
         }
       }
-      if (ev.key === 'z' && (ev.metaKey || ev.ctrlKey)) {
+      if (ev.key === 'z' && (ev.metaKey || ev.ctrlKey) && !ev.shiftKey) {
         ev.preventDefault();
-        if (ev.shiftKey) redo(); else undo();
+        if (draftRef.current.length > 0) {
+          setDraft((d) => d.slice(0, -1));
+        } else {
+          undo();
+        }
+        return;
+      }
+      if (ev.key === 'z' && (ev.metaKey || ev.ctrlKey) && ev.shiftKey) {
+        ev.preventDefault();
+        redo();
       }
       // Option+Delete or Option+Backspace: clear all shapes (undoable)
       if ((ev.key === 'Delete' || ev.key === 'Backspace') && ev.altKey) {
@@ -748,6 +1040,7 @@ export default function App() {
         ev.preventDefault();
         switchMode('builder');
       }
+
       // Delete/Backspace in builder mode: delete selected or hovered face
       if (uiMode === 'builder' && (ev.key === 'Delete' || ev.key === 'Backspace') && !ev.altKey) {
         ev.preventDefault();
@@ -787,6 +1080,7 @@ export default function App() {
         <canvas
           ref={canvasRef}
           className="parrot-canvas"
+          style={{ cursor: cursorInHitArea ? 'crosshair' : 'default' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -806,32 +1100,76 @@ export default function App() {
 
       {uiMode === 'design' ? (
         <footer className="parrot-footer parrot-footer--design">
-          <div className="parrot-panel">
-            <ColorRow label="Shape color" value={shapeColor} onChange={setShapeColor} />
-            <PanelRow>
-              <span>Line weight</span>
-              <DeferredInput value={strokeWidth} min={0} max={100} onCommit={setStrokeWidth} suffix="px" />
-            </PanelRow>
-          </div>
-          <div className="parrot-panel">
-            <PanelRow>
-              <span>Columns</span>
-              <DeferredInput value={columns} min={DIM_MIN} max={DIM_MAX} onCommit={setColumns} />
-            </PanelRow>
-            <PanelRow>
-              <span>Rows</span>
-              <DeferredInput value={rows} min={DIM_MIN} max={DIM_MAX} onCommit={setRows} />
-            </PanelRow>
-          </div>
-          <div className="parrot-panel">
-            <PanelRow>
-              <span>Width</span>
-              <DeferredInput value={gridW} min={0} max={PX_MAX} onCommit={setGridW} suffix="px" />
-            </PanelRow>
-            <PanelRow>
-              <span>Height</span>
-              <DeferredInput value={gridH} min={0} max={PX_MAX} onCommit={setGridH} suffix="px" />
-            </PanelRow>
+          <div className="parrot-footer__inner">
+            <div className="parrot-panel">
+              <ColorRow label="Shape color" value={shapeColor} onChange={setShapeColor} />
+              <PanelRow>
+                <span>Line weight</span>
+                <DeferredInput value={strokeWidth} min={0} max={100} onCommit={setStrokeWidth} suffix="px" />
+              </PanelRow>
+            </div>
+            <div className="parrot-panel">
+              <PanelRow>
+                <span>Columns</span>
+                <DeferredInput value={columns} min={DIM_MIN} max={DIM_MAX} onCommit={(newCols) => {
+                  if (newCols !== columns && docRef.current.shapes.length > 0) {
+                    const newGrid = { columns: newCols, rows, width: gridWRef.current, height: gridHRef.current };
+                    push(replaceShapes(docRef.current, docRef.current.shapes.map(s => ({
+                      ...s,
+                      vertices: s.vertices.map(v => snapToGrid(v, newGrid)),
+                    }))));
+                    setDraft(d => d.map(v => snapToGrid(v, newGrid)));
+                  }
+                  setColumns(newCols);
+                }} />
+              </PanelRow>
+              <PanelRow>
+                <span>Rows</span>
+                <DeferredInput value={rows} min={DIM_MIN} max={DIM_MAX} onCommit={(newRows) => {
+                  if (newRows !== rows && docRef.current.shapes.length > 0) {
+                    const newGrid = { columns, rows: newRows, width: gridWRef.current, height: gridHRef.current };
+                    push(replaceShapes(docRef.current, docRef.current.shapes.map(s => ({
+                      ...s,
+                      vertices: s.vertices.map(v => snapToGrid(v, newGrid)),
+                    }))));
+                    setDraft(d => d.map(v => snapToGrid(v, newGrid)));
+                  }
+                  setRows(newRows);
+                }} />
+              </PanelRow>
+            </div>
+            <div className="parrot-panel">
+              <PanelRow>
+                <span>Width</span>
+                <DeferredInput value={gridW} min={0} max={PX_MAX} onCommit={(newW) => {
+                  const oldW = gridWRef.current;
+                  if (oldW > 0 && newW !== oldW) {
+                    const ratio = newW / oldW;
+                    push(replaceShapes(docRef.current, docRef.current.shapes.map(s => ({
+                      ...s,
+                      vertices: s.vertices.map(v => ({ x: v.x * ratio, y: v.y })),
+                    }))));
+                    setDraft(d => d.map(v => ({ x: v.x * ratio, y: v.y })));
+                  }
+                  setGridW(newW);
+                }} suffix="px" />
+              </PanelRow>
+              <PanelRow>
+                <span>Height</span>
+                <DeferredInput value={gridH} min={0} max={PX_MAX} onCommit={(newH) => {
+                  const oldH = gridHRef.current;
+                  if (oldH > 0 && newH !== oldH) {
+                    const ratio = newH / oldH;
+                    push(replaceShapes(docRef.current, docRef.current.shapes.map(s => ({
+                      ...s,
+                      vertices: s.vertices.map(v => ({ x: v.x, y: v.y * ratio })),
+                    }))));
+                    setDraft(d => d.map(v => ({ x: v.x, y: v.y * ratio })));
+                  }
+                  setGridH(newH);
+                }} suffix="px" />
+              </PanelRow>
+            </div>
           </div>
         </footer>
       ) : (
@@ -839,14 +1177,28 @@ export default function App() {
           <div className="parrot-hints">
             <div className="parrot-hint">
               <div className="parrot-hint__keys">
-                <span className="parrot-hint__key">Option</span>
+                <span className="parrot-hint__key parrot-hint__key--icon">{'\u{100194}'}</span>
+                <span className="parrot-hint__key parrot-hint__key--icon">1</span>
+              </div>
+              <span className="parrot-hint__label">Design</span>
+            </div>
+            <div className="parrot-hint">
+              <div className="parrot-hint__keys">
+                <span className="parrot-hint__key parrot-hint__key--icon">{'\u{100194}'}</span>
+                <span className="parrot-hint__key parrot-hint__key--icon">2</span>
+              </div>
+              <span className="parrot-hint__label">Build</span>
+            </div>
+            <div className="parrot-hint">
+              <div className="parrot-hint__keys">
+                <span className="parrot-hint__key parrot-hint__key--icon">{'\u{100195}'}</span>
                 <span className="parrot-hint__key parrot-hint__key--icon">{'\u{100B46}'}</span>
               </div>
               <span className="parrot-hint__label">delete face</span>
             </div>
             <div className="parrot-hint">
               <div className="parrot-hint__keys">
-                <span className="parrot-hint__key">Option</span>
+                <span className="parrot-hint__key parrot-hint__key--icon">{'\u{100195}'}</span>
                 <span className="parrot-hint__key parrot-hint__key--icon">{'\u{10019B}'}</span>
               </div>
               <span className="parrot-hint__label">delete all shapes</span>

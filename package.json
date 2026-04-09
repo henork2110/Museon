@@ -13,13 +13,15 @@
   },
   "dependencies": {
     "clipper2-ts": "^2.0.1-15",
+    "culori": "^4.0.2",
+    "dialkit": "^1.2.0",
     "motion": "^12.38.0",
     "react": "^19.2.4",
-    "react-colorful": "^5.6.1",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@types/culori": "^4.0.1",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

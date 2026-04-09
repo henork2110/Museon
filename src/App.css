@@ -78,22 +78,28 @@
 .parrot-footer {
   position: absolute;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   z-index: 10;
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   padding: 16px;
-  gap: 8px;
   pointer-events: none;
+  overflow: visible;
 }
 
-.parrot-footer > * {
+/* Inner row — never wraps, panels shrink to fit */
+.parrot-footer__inner {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: flex-start;
   pointer-events: auto;
+  overflow: visible;
+  min-width: 0;
 }
 
-.parrot-footer--design {
+.parrot-footer--design .parrot-footer__inner {
   align-items: flex-start;
   gap: 4px;
 }
@@ -201,7 +207,8 @@
   flex-direction: column;
   gap: 4px;
   width: 200px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 140px;
 }
 
 /* ── Control panel row (field: Columns, Rows, Width, Height) ──
@@ -304,65 +311,175 @@
 }
 
 /* ── Custom color picker popover ── */
+/* No bg/border-radius on the container — each child has its own */
 .parrot-colorpicker {
   position: absolute;
   bottom: calc(100% + 4px);
   left: 0;
   z-index: 100;
-  background: #2c2c2c;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 200px;
 }
 
-.parrot-colorpicker .react-colorful {
+/* ── P3 color picker ── */
+.parrot-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   width: 100%;
-  height: 150px;
-  border-radius: 4px;
+  perspective: 700px;
+  perspective-origin: bottom center;
+}
+
+@keyframes parrot-picker-in {
+  from {
+    opacity: 0;
+    transform: rotateX(var(--picker-tilt, 32deg));
+    filter: blur(var(--picker-blur, 0px));
+  }
+  to {
+    opacity: 1;
+    transform: rotateX(0deg);
+    filter: blur(0px);
+  }
+}
+
+@keyframes parrot-picker-out {
+  from {
+    opacity: 1;
+    transform: rotateX(0deg) scale(1);
+    filter: blur(0px);
+  }
+  to {
+    opacity: 0;
+    transform: rotateX(var(--picker-tilt, 32deg)) scale(0.92);
+    filter: blur(max(var(--picker-blur, 0px), 8px));
+  }
+}
+
+/* Reverse-stagger on close: sat (last in) exits first, hue (first in) exits last */
+.parrot-colorpicker.is-exiting .parrot-picker__sat {
+  animation: parrot-picker-out calc(var(--picker-speed, 0.42s) * 0.4) ease-in both;
+  animation-delay: 0s;
+}
+.parrot-colorpicker.is-exiting .parrot-picker__hue {
+  --picker-tilt: calc(var(--picker-tilt-base, 32deg) * 3);
+  animation: parrot-picker-out calc(var(--picker-speed, 0.36s) * 0.4) ease-in both;
+  animation-delay: calc(var(--picker-speed, 0.42s) * 0.4 * 0.65);
+}
+
+.parrot-picker__sat {
+  height: 200px;
+  border-radius: 8px;
+  /* No overflow:hidden here — pointer lives here and must not be clipped */
+  position: relative;
+  flex-shrink: 0;
+  cursor: crosshair;
+  transform-origin: bottom center;
+  animation: parrot-picker-in var(--picker-speed, 0.42s) var(--picker-ease, cubic-bezier(0.34, 1.4, 0.64, 1)) both;
+  animation-delay: var(--sat-delay, 0.12s);
+}
+
+/* Inner wrapper clips the canvas to rounded corners */
+.parrot-picker__sat-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
   overflow: hidden;
 }
 
-.parrot-colorpicker .react-colorful__saturation {
-  border-radius: 4px 4px 0 0;
+.parrot-picker__sat-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
 }
 
-.parrot-colorpicker .react-colorful__hue {
-  height: 10px;
-  border-radius: 4px;
-  margin-top: 6px;
-}
-
-.parrot-colorpicker .react-colorful__pointer {
-  width: 14px;
-  height: 14px;
+.parrot-picker__sat-pointer {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-.parrot-colorpicker__hex {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #1c1c1c;
+.parrot-picker__hue {
+  height: 32px;
   border-radius: 8px;
-  padding: 8px 12px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
-  margin-top: 2px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transform-origin: bottom center;
+  animation: parrot-picker-in var(--picker-speed, 0.36s) var(--picker-ease, cubic-bezier(0.34, 1.4, 0.64, 1)) both;
+  animation-delay: var(--hue-delay, 0.03s);
 }
 
-.parrot-colorpicker__hex input {
+.parrot-picker__hue-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+}
+
+.parrot-picker__hue-pointer {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 16px;
+  border-radius: 99px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+/* Hex input — identical height/style to .parrot-row__label span */
+.parrot-colorpicker__hex-input {
   flex: 1;
+  height: 16px;
+  padding: 0;
+  margin: 0;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.5);
+  font: inherit;
+  line-height: 16px;
+  outline: none;
+  text-transform: none;
+  min-width: 0;
+  cursor: default;
+  caret-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Confirm icon — 16×16, same color as label text */
+.parrot-colorpicker__confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.5);
   font: inherit;
   font-size: 12px;
-  outline: none;
-  letter-spacing: 0.05em;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+/* Suppress hover bg when picker is open */
+.parrot-row--color.is-open,
+.parrot-row--color.is-open:hover {
+  background: #2c2c2c;
+  cursor: default;
 }
 
 /* ── Builder footer: keyboard shortcut hint cards ── */
@@ -377,8 +494,8 @@
   display: flex;
   gap: 4px;
   align-items: center;
-  padding: 8px;
-  border-radius: 10px;
+  padding: 6px;
+  border-radius: 8px;
   border: 1px solid #2c2c2c;
 }
 
