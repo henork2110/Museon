@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "clipper2-ts": "^2.0.1-15",
     "culori": "^4.0.2",
     "dialkit": "^1.2.0",
