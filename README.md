@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# Museon
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A grid-native shape builder for designing and exporting geometric patterns.
 
-Currently, two official plugins are available:
+**[museon.is](https://www.museon.is)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## What it does
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Draw shapes by clicking grid intersections
+- Boolean union across overlapping shapes
+- Switch to Builder mode to sculpt faces individually
+- P3 color picker with animated open/close
+- Export as SVG
 
-## Expanding the ESLint configuration
+## Keyboard shortcuts
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Key | Action |
+|-----|--------|
+| `⌘1` | Design mode |
+| `⌘2` | Builder mode |
+| `Enter` | Close current shape |
+| `Escape` | Cancel / deselect |
+| `⌘Z` | Undo (or pop last point while drawing) |
+| `⌘⇧Z` | Redo |
+| `⌥ click` | Delete face (Builder) |
+| `⌥ ⌫` | Delete all shapes |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Run locally
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone https://github.com/henork2110/Museon.git
+cd Museon
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## License
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Public domain — [Unlicense](LICENSE)
